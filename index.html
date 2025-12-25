@@ -351,7 +351,41 @@
         // --- 初期化 ---
         window.onload = () => {
             initDrawGrid();
+            checkForSavedGame();
         };
+
+        function checkForSavedGame() {
+            const savedGame = localStorage.getItem('savedGame');
+            if (savedGame) {
+                const menu = document.getElementById('scene-menu');
+                const newGameButton = menu.querySelector('button[onclick="startCreator()"]');
+
+                if (newGameButton) {
+                    newGameButton.style.display = 'none';
+
+                    // CONTINUEボタンを追加
+                    const continueButton = document.createElement('button');
+                    continueButton.innerText = "CONTINUE";
+                    continueButton.onclick = () => {
+                        gameState = JSON.parse(savedGame);
+                        startGame();
+                        setStatus("CONTINUED!");
+                    };
+                    newGameButton.parentNode.insertBefore(continueButton, newGameButton.nextSibling);
+
+                    // START OVERボタンを追加
+                    const startOverButton = document.createElement('button');
+                    startOverButton.innerText = "START OVER";
+                    startOverButton.onclick = () => {
+                        if (confirm('セーブデータを消してはじめからスタートしますか？')) {
+                            localStorage.removeItem('savedGame');
+                            location.reload();
+                        }
+                    };
+                    menu.appendChild(startOverButton);
+                }
+            }
+        }
 
         function switchScene(sceneId) {
             document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
@@ -456,6 +490,9 @@
             else if (gameState.stats.energy <= 0) die("TIRED...");
             else if (gameState.stats.happy <= 0) die("SAD...");
             else if (gameState.age >= 100) die("OLD AGE..."); // 寿命
+
+            // オートセーブ
+            localStorage.setItem('savedGame', JSON.stringify(gameState));
         }
 
         function checkStats() {
@@ -539,6 +576,7 @@
             };
             hallOfFame.push(deadChar);
             localStorage.setItem('hallOfFame', JSON.stringify(hallOfFame));
+            localStorage.removeItem('savedGame'); // セーブデータを消す
 
             switchScene('scene-dead');
             document.getElementById('dead-msg').innerText = reason;
