@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyFlexBox (MFB)</title>
+    <style>
+        /* --- スタイル定義 (Pixel Art & Flexbox) --- */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        :root {
+            --bg-color: #f0f0f0;
+            --console-color: #70a1ff;
+            --screen-bg: #9ea758; /* ゲームボーイ風の緑 */
+            --pixel-off: #8b9643;
+            --pixel-on: #2d3312;
+            --ui-font: 'Press Start 2P', cursive, monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: var(--ui-font);
+            overflow: hidden;
+        }
+
+        /* ゲーム機本体のデザイン */
+        #console {
+            background-color: var(--console-color);
+            width: 360px;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 0 #466db0, 0 20px 20px rgba(0,0,0,0.2);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 画面エリア */
+        #screen-container {
+            background-color: #555;
+            padding: 20px 20px 40px 20px;
+            border-radius: 10px 10px 40px 10px;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5);
+        }
+
+        #screen {
+            background-color: var(--screen-bg);
+            height: 300px;
+            border: 4px solid #444;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            image-rendering: pixelated;
+        }
+
+        /* 汎用ボタンスタイル */
+        button {
+            font-family: var(--ui-font);
+            background: #eee;
+            border: 4px solid #ccc;
+            border-bottom: 4px solid #888;
+            border-right: 4px solid #888;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 10px;
+            margin: 5px;
+            active: translateY(2px);
+        }
+        button:active {
+            border: 4px solid #ccc;
+            transform: translateY(2px);
+        }
+
+        .primary-btn {
+            background: #ff6b6b;
+            color: white;
+            border-color: #ff8787;
+            border-bottom-color: #c92a2a;
+            border-right-color: #c92a2a;
+        }
+
+        /* --- 画面切り替え用 --- */
+        .scene {
+            display: none;
+            width: 100%;
+            height: 100%;
+        }
+        .scene.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- エディタ画面 --- */
+        #draw-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 1px;
+            background: #8b9643;
+            padding: 2px;
+            border: 2px solid #2d3312;
+            width: 150px;
+            height: 150px;
+            margin-bottom: 10px;
+        }
+        .pixel {
+            background-color: transparent;
+            cursor: pointer;
+        }
+        .pixel.filled {
+            background-color: var(--pixel-on);
+        }
+
+        /* --- ゲームプレイ画面 --- */
+        #character-display {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite ease-in-out;
+        }
+        .char-pixel {
+            width: 100%;
+            height: 100%;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .stats-bar {
+            width: 80%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--pixel-on);
+            margin-bottom: 5px;
+        }
+        .bar-outer {
+            width: 60px;
+            height: 8px;
+            border: 1px solid var(--pixel-on);
+            position: relative;
+        }
+        .bar-inner {
+            background-color: var(--pixel-on);
+            height: 100%;
+            width: 100%;
+            transition: width 0.3s;
+        }
+
+        /* コントロールパネル */
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        h1, h2, p {
+            color: var(--pixel-on);
+            margin: 5px;
+            text-align: center;
+        }
+
+        input[type="text"] {
+            font-family: var(--ui-font);
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid var(--pixel-on);
+            color: var(--pixel-on);
+            text-align: center;
+            outline: none;
+            margin-bottom: 10px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="console">
+        <div style="font-size: 12px; color: white; margin-bottom: -15px; text-align: left; padding-left: 20px;">POWER <span style="color:red">●</span></div>
+        
+        <div id="screen-container">
+            <div id="screen">
+                
+                <div id="scene-menu" class="scene active">
+                    <h1>MyFlexBox</h1>
+                    <p style="font-size: 10px; margin-bottom: 20px;">v1.0.0</p>
+                    <button onclick="startCreator()">NEW GAME</button>
+                    <button onclick="document.getElementById('file-input').click()">LOAD .MFB</button>
+                    <input type="file" id="file-input" accept=".mfb" onchange="importMFB(this)">
+                </div>
+
+                <div id="scene-creator" class="scene">
+                    <h2>DRAW CHARA</h2>
+                    <div id="draw-grid">
+                        </div>
+                    <input type="text" id="char-name-input" placeholder="NAME?" maxlength="8">
+                    <div>
+                        <button onclick="clearGrid()">CLR</button>
+                        <button class="primary-btn" onclick="born()">BORN!</button>
+                    </div>
+                </div>
+
+                <div id="scene-game" class="scene">
+                    <div id="stats-ui" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                        <div class="stats-bar">
+                            <span>HUNGRY</span>
+                            <div class="bar-outer"><div class="bar-inner" id="bar-hunger"></div></div>
+                        </div>
+                        <div class="stats-bar">
+                            <span>HAPPY</span>
+                            <div class="bar-outer"><div class="bar-inner" id="bar-happy"></div></div>
+                        </div>
+                        <div class="stats-bar">
+                            <span>ENERGY</span>
+                            <div class="bar-outer"><div class="bar-inner" id="bar-energy"></div></div>
+                        </div>
+                    </div>
+
+                    <div id="character-display">
+                        </div>
+
+                    <h2 id="display-name" style="font-size: 12px;"></h2>
+                    <div id="status-msg" style="font-size: 8px; height: 10px;"></div>
+                </div>
+
+                <div id="scene-dead" class="scene">
+                    <h1>R.I.P.</h1>
+                    <p id="dead-msg"></p>
+                    <button onclick="location.reload()">RESET</button>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="controls">
+            <button onclick="action('feed')">FEED</button>
+            <button onclick="action('play')">PLAY</button>
+            <button onclick="action('sleep')">SLEEP</button>
+        </div>
+        <div>
+            <button style="background:#ddd; width: 100px;" onclick="exportMFB()">SAVE (.mfb)</button>
+        </div>
+    </div>
+
+    <script>
+        // --- ゲームの状態管理 ---
+        let gameState = {
+            name: "NONAME",
+            pixelMap: [], // 100個の0 or 1
+            stats: {
+                hunger: 100, // 100=満腹, 0=餓死
+                happy: 100,  // 100=最高, 0=家出
+                energy: 100  // 100=元気, 0=過労死
+            },
+            isAlive: true,
+            age: 0
+        };
+
+        let gameLoopId = null;
+        let decayId = null;
+
+        // --- 初期化 ---
+        window.onload = () => {
+            initDrawGrid();
+        };
+
+        function switchScene(sceneId) {
+            document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+            document.getElementById(sceneId).classList.add('active');
+        }
+
+        // --- クリエイター機能 ---
+        function initDrawGrid() {
+            const grid = document.getElementById('draw-grid');
+            grid.innerHTML = '';
+            // 10x10の空データ
+            for (let i = 0; i < 100; i++) {
+                let div = document.createElement('div');
+                div.className = 'pixel';
+                div.dataset.index = i;
+                div.onclick = function() {
+                    this.classList.toggle('filled');
+                };
+                grid.appendChild(div);
+            }
+        }
+
+        function startCreator() {
+            switchScene('scene-creator');
+        }
+
+        function clearGrid() {
+            document.querySelectorAll('.pixel').forEach(p => p.classList.remove('filled'));
+        }
+
+        function born() {
+            const nameInput = document.getElementById('char-name-input').value;
+            if (!nameInput) {
+                alert("名前を決めてください！");
+                return;
+            }
+
+            // ピクセルデータを取得
+            const pixels = [];
+            document.querySelectorAll('#draw-grid .pixel').forEach(p => {
+                pixels.push(p.classList.contains('filled') ? 1 : 0);
+            });
+
+            // 何も描いてない場合のチェック（任意）
+            if (!pixels.includes(1)) {
+                alert("何か描いてください！");
+                return;
+            }
+
+            // データセット
+            gameState.name = nameInput;
+            gameState.pixelMap = pixels;
+            gameState.stats = { hunger: 80, happy: 80, energy: 80 };
+            gameState.isAlive = true;
+
+            startGame();
+        }
+
+        // --- ゲームループ ---
+        function startGame() {
+            switchScene('scene-game');
+            document.getElementById('display-name').innerText = gameState.name;
+            renderCharacter();
+            updateUI();
+
+            if (gameLoopId) clearInterval(gameLoopId);
+            
+            // 時間経過によるステータス減少 (3秒ごとに判定)
+            gameLoopId = setInterval(gameTick, 3000);
+            setStatus("BORN!");
+        }
+
+        function renderCharacter() {
+            const display = document.getElementById('character-display');
+            display.innerHTML = '';
+            gameState.pixelMap.forEach(bit => {
+                let div = document.createElement('div');
+                div.className = 'char-pixel';
+                if (bit === 1) div.style.backgroundColor = 'var(--pixel-on)';
+                display.appendChild(div);
+            });
+        }
+
+        function gameTick() {
+            if (!gameState.isAlive) return;
+
+            // 自然減少
+            gameState.stats.hunger -= 2;
+            gameState.stats.happy -= 1;
+            gameState.stats.energy -= 1;
+
+            // 制限
+            checkStats();
+            updateUI();
+
+            // 死亡判定
+            if (gameState.stats.hunger <= 0) die("HUNGER...");
+            else if (gameState.stats.energy <= 0) die("TIRED...");
+            else if (gameState.stats.happy <= 0) die("SAD...");
+        }
+
+        function checkStats() {
+            ['hunger', 'happy', 'energy'].forEach(key => {
+                if (gameState.stats[key] > 100) gameState.stats[key] = 100;
+                if (gameState.stats[key] < 0) gameState.stats[key] = 0;
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('bar-hunger').style.width = gameState.stats.hunger + '%';
+            document.getElementById('bar-happy').style.width = gameState.stats.happy + '%';
+            document.getElementById('bar-energy').style.width = gameState.stats.energy + '%';
+        }
+
+        // --- アクション ---
+        function action(type) {
+            if (!gameState.isAlive) return;
+            
+            const btnAudio = new Audio(); // 音を入れるならここ
+            
+            switch(type) {
+                case 'feed':
+                    gameState.stats.hunger += 20;
+                    gameState.stats.energy -= 5;
+                    setStatus("YUMMY!");
+                    break;
+                case 'play':
+                    gameState.stats.happy += 20;
+                    gameState.stats.hunger -= 10;
+                    gameState.stats.energy -= 10;
+                    setStatus("FUN!");
+                    break;
+                case 'sleep':
+                    gameState.stats.energy += 30;
+                    gameState.stats.hunger -= 10;
+                    setStatus("ZZZ...");
+                    break;
+            }
+            checkStats();
+            updateUI();
+        }
+
+        function setStatus(msg) {
+            const el = document.getElementById('status-msg');
+            el.innerText = msg;
+            setTimeout(() => { if(el.innerText === msg) el.innerText = ""; }, 2000);
+        }
+
+        function die(reason) {
+            gameState.isAlive = false;
+            clearInterval(gameLoopId);
+            switchScene('scene-dead');
+            document.getElementById('dead-msg').innerText = reason;
+        }
+
+        // --- ファイル入出力 (Import/Export) ---
+
+        function exportMFB() {
+            if (!gameState.isAlive && gameState.name === "NONAME") {
+                alert("セーブするデータがありません");
+                return;
+            }
+
+            const dataStr = JSON.stringify(gameState);
+            const blob = new Blob([dataStr], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${gameState.name}.mfb`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importMFB(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loadedData = JSON.parse(e.target.result);
+                    
+                    // 簡易的なデータ整合性チェック
+                    if (loadedData.name && loadedData.pixelMap && loadedData.stats) {
+                        gameState = loadedData;
+                        // 死亡しているデータなら死亡画面へ、生きていればゲーム再開
+                        if (!gameState.isAlive) {
+                            switchScene('scene-dead');
+                            document.getElementById('dead-msg').innerText = "Already Dead...";
+                        } else {
+                            startGame();
+                            setStatus("LOADED!");
+                        }
+                    } else {
+                        alert("壊れたMFBファイルです");
+                    }
+                } catch (err) {
+                    alert("読み込みエラー: " + err);
+                }
+            };
+            reader.readAsText(file);
+            // 同じファイルを再度読み込めるようにリセット
+            input.value = '';
+        }
+
+    </script>
+</body>
+</html>
