@@ -70,7 +70,7 @@
             border: 4px solid #ccc;
             border-bottom: 4px solid #888;
             border-right: 4px solid #888;
-            padding: 10px;
+            padding: 8px;
             cursor: pointer;
             font-size: 10px;
             margin: 5px;
@@ -168,6 +168,7 @@
             justify-content: center;
             gap: 10px;
             margin-top: 10px;
+            flex-wrap: wrap;
         }
 
         h1, h2, p {
@@ -190,6 +191,14 @@
         input[type="file"] {
             display: none;
         }
+
+        .room-bg-1 {
+            background-image: linear-gradient(var(--pixel-off) 1px, transparent 1px), linear-gradient(90deg, var(--pixel-off) 1px, transparent 1px);
+            background-size: 10px 10px;
+        }
+        .room-bg-2 {
+            background-color: #a1b065;
+        }
     </style>
 </head>
 <body>
@@ -205,6 +214,8 @@
                     <p style="font-size: 10px; margin-bottom: 20px;">v1.0.0</p>
                     <button onclick="startCreator()">NEW GAME</button>
                     <button onclick="document.getElementById('file-input').click()">LOAD .MFB</button>
+                    <button onclick="showCorridor()">CORRIDOR</button>
+                    <button onclick="showTutorial()">TUTORIAL</button>
                     <input type="file" id="file-input" accept=".mfb" onchange="importMFB(this)">
                 </div>
 
@@ -233,12 +244,25 @@
                             <span>ENERGY</span>
                             <div class="bar-outer"><div class="bar-inner" id="bar-energy"></div></div>
                         </div>
+                        <div class="stats-bar">
+                            <span>STR</span>
+                            <div class="bar-outer"><div class="bar-inner" id="bar-strength"></div></div>
+                        </div>
+                        <div class="stats-bar">
+                            <span>INT</span>
+                            <div class="bar-outer"><div class="bar-inner" id="bar-intelligence"></div></div>
+                        </div>
+                        <div class="stats-bar">
+                            <span>DIS</span>
+                            <div class="bar-outer"><div class="bar-inner" id="bar-discipline"></div></div>
+                        </div>
                     </div>
 
                     <div id="character-display">
                         </div>
 
                     <h2 id="display-name" style="font-size: 12px;"></h2>
+                    <p id="display-age" style="font-size: 10px;"></p>
                     <div id="status-msg" style="font-size: 8px; height: 10px;"></div>
                 </div>
 
@@ -248,6 +272,34 @@
                     <button onclick="location.reload()">RESET</button>
                 </div>
 
+                <div id="scene-corridor" class="scene" style="justify-content: flex-start; padding-top: 20px;">
+                    <h2>HALL OF FAME</h2>
+                    <div id="corridor-list" style="font-size: 8px; text-align: left; width: 80%; height: 200px; overflow-y: auto;"></div>
+                    <button onclick="switchScene('scene-menu')">BACK</button>
+                </div>
+
+                <div id="scene-tutorial" class="scene" style="justify-content: flex-start; padding-top: 20px; text-align: left; font-size: 8px; ">
+                    <h2 style="font-size: 12px;">TUTORIAL</h2>
+                    <div style="width: 80%; height: 220px; overflow-y: auto; ">
+                        <p><span style="color: #ff6b6b;">- BUTTONS -</span></p>
+                        <p>FEED: Hunger++</p>
+                        <p>PLAY: Happy++</p>
+                        <p>SLEEP: Energy++</p>
+                        <p>TRAIN: Str++</p>
+                        <p>STUDY: Int++</p>
+                        <p>SCOLD: Dis++ Happy--</p>
+                        <p>ROOM: Change Room BG</p>
+                        <br>
+                        <p><span style="color: #ff6b6b;">- STATUS -</span></p>
+                        <p>HUNGRY: Goes down over time. If it reaches 0, you die.</p>
+                        <p>HAPPY: Goes down over time. If it reaches 0, you die.</p>
+                        <p>ENERGY: Goes down over time. If it reaches 0, you die.</p>
+                        <p>STR: Strength</p>
+                        <p>INT: Intelligence</p>
+                        <p>DIS: Discipline. Affects...?</p>
+                    </div>
+                    <button onclick="switchScene('scene-menu')">BACK</button>
+                </div>
             </div>
         </div>
 
@@ -255,6 +307,10 @@
             <button onclick="action('feed')">FEED</button>
             <button onclick="action('play')">PLAY</button>
             <button onclick="action('sleep')">SLEEP</button>
+            <button onclick="action('train')">TRAIN</button>
+            <button onclick="action('study')">STUDY</button>
+            <button onclick="action('scold')">SCOLD</button>
+            <button onclick="changeRoom()">ROOM</button>
         </div>
         <div>
             <button style="background:#ddd; width: 100px;" onclick="exportMFB()">SAVE (.mfb)</button>
@@ -267,9 +323,12 @@
             name: "NONAME",
             pixelMap: [], // 100個の0 or 1
             stats: {
-                hunger: 100, // 100=満腹, 0=餓死
-                happy: 100,  // 100=最高, 0=家出
-                energy: 100  // 100=元気, 0=過労死
+                hunger: 100,
+                happy: 100,
+                energy: 100,
+                strength: 10,
+                intelligence: 10,
+                discipline: 10
             },
             isAlive: true,
             age: 0
@@ -277,6 +336,17 @@
 
         let gameLoopId = null;
         let decayId = null;
+        let currentRoom = 0;
+        const roomStyles = ['', 'room-bg-1', 'room-bg-2'];
+
+        function changeRoom() {
+            currentRoom = (currentRoom + 1) % roomStyles.length;
+            const screen = document.getElementById('screen');
+            screen.className = ''; // Reset classes
+            if(roomStyles[currentRoom]) {
+                screen.classList.add(roomStyles[currentRoom]);
+            }
+        }
 
         // --- 初期化 ---
         window.onload = () => {
@@ -334,8 +404,9 @@
             // データセット
             gameState.name = nameInput;
             gameState.pixelMap = pixels;
-            gameState.stats = { hunger: 80, happy: 80, energy: 80 };
+            gameState.stats = { hunger: 80, happy: 80, energy: 80, strength: 5, intelligence: 5, discipline: 5 };
             gameState.isAlive = true;
+            gameState.age = 0;
 
             startGame();
         }
@@ -368,6 +439,9 @@
         function gameTick() {
             if (!gameState.isAlive) return;
 
+            // 年齢を重ねる
+            gameState.age++;
+
             // 自然減少
             gameState.stats.hunger -= 2;
             gameState.stats.happy -= 1;
@@ -381,10 +455,11 @@
             if (gameState.stats.hunger <= 0) die("HUNGER...");
             else if (gameState.stats.energy <= 0) die("TIRED...");
             else if (gameState.stats.happy <= 0) die("SAD...");
+            else if (gameState.age >= 100) die("OLD AGE..."); // 寿命
         }
 
         function checkStats() {
-            ['hunger', 'happy', 'energy'].forEach(key => {
+            ['hunger', 'happy', 'energy', 'strength', 'intelligence', 'discipline'].forEach(key => {
                 if (gameState.stats[key] > 100) gameState.stats[key] = 100;
                 if (gameState.stats[key] < 0) gameState.stats[key] = 0;
             });
@@ -394,6 +469,10 @@
             document.getElementById('bar-hunger').style.width = gameState.stats.hunger + '%';
             document.getElementById('bar-happy').style.width = gameState.stats.happy + '%';
             document.getElementById('bar-energy').style.width = gameState.stats.energy + '%';
+            document.getElementById('bar-strength').style.width = gameState.stats.strength + '%';
+            document.getElementById('bar-intelligence').style.width = gameState.stats.intelligence + '%';
+            document.getElementById('bar-discipline').style.width = gameState.stats.discipline + '%';
+            document.getElementById('display-age').innerText = `AGE: ${gameState.age}`;
         }
 
         // --- アクション ---
@@ -419,6 +498,23 @@
                     gameState.stats.hunger -= 10;
                     setStatus("ZZZ...");
                     break;
+                case 'train':
+                    gameState.stats.strength += 10;
+                    gameState.stats.energy -= 15;
+                    gameState.stats.hunger -= 5;
+                    setStatus("Ghhh!");
+                    break;
+                case 'study':
+                    gameState.stats.intelligence += 10;
+                    gameState.stats.energy -= 15;
+                    gameState.stats.hunger -= 5;
+                    setStatus("Hmm..");
+                    break;
+                case 'scold':
+                    gameState.stats.discipline += 10;
+                    gameState.stats.happy -= 10;
+                    setStatus("...");
+                    break;
             }
             checkStats();
             updateUI();
@@ -433,6 +529,17 @@
         function die(reason) {
             gameState.isAlive = false;
             clearInterval(gameLoopId);
+
+            // 殿堂入りデータを保存
+            const hallOfFame = JSON.parse(localStorage.getItem('hallOfFame') || '[]');
+            const deadChar = {
+                name: gameState.name,
+                age: gameState.age,
+                reason: reason
+            };
+            hallOfFame.push(deadChar);
+            localStorage.setItem('hallOfFame', JSON.stringify(hallOfFame));
+
             switchScene('scene-dead');
             document.getElementById('dead-msg').innerText = reason;
         }
@@ -456,6 +563,26 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        function showCorridor() {
+            const hallOfFame = JSON.parse(localStorage.getItem('hallOfFame') || '[]');
+            const listEl = document.getElementById('corridor-list');
+            listEl.innerHTML = '';
+            if (hallOfFame.length === 0) {
+                listEl.innerHTML = '<p>NO DATA</p>';
+            } else {
+                hallOfFame.forEach(c => {
+                    const entry = document.createElement('p');
+                    entry.innerText = `${c.name} (AGE ${c.age}) - ${c.reason}`;
+                    listEl.appendChild(entry);
+                });
+            }
+            switchScene('scene-corridor');
+        }
+
+        function showTutorial() {
+            switchScene('scene-tutorial');
         }
 
         function importMFB(input) {
